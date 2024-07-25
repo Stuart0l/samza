@@ -42,7 +42,8 @@ def scalaModules = [
         'samza-tools',
         'samza-test',
         'samza-yarn',
-        'samza-yarn3'
+        'samza-yarn3',
+        'samzaapp'
 ] as HashSet
 
 scalaModules.each {
