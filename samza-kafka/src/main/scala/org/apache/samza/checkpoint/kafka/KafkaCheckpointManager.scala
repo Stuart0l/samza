@@ -83,6 +83,8 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
 
   val checkpointReadVersions: util.List[lang.Short] = new TaskConfig(config).getCheckpointReadVersions
   val liveCheckpointMaxAgeMillis: Long = new TaskConfig(config).getLiveCheckpointMaxAgeMillis
+  var totalCheckpointTime: Long = 0
+  var checkpointN: Long = 0
 
 
   /**
@@ -173,9 +175,13 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
     while ((System.currentTimeMillis() - startTimeInMillis) <= MaxRetryDurationInMillis) {
       val currentProducer = producerRef.get()
       try {
+        var startTime: Long = System.nanoTime()
         currentProducer.send(taskName.getTaskName, envelope)
         currentProducer.flush(taskName.getTaskName) // make sure it is written
-        println(s"Wrote checkpoint: $checkpoint for task: $taskName")
+        var endTime: Long = System.nanoTime()
+        debug(s"Wrote checkpoint: $checkpoint for task: $taskName")
+        checkpointN += 1
+        totalCheckpointTime += (endTime - startTime)
         return
       } catch {
         case exception: Exception => {
@@ -228,6 +234,8 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
       info("Stopping system consumer")
       systemConsumer.stop()
     }
+
+    println(s"total time: $totalCheckpointTime, N: $checkpointN")
 
     info("CheckpointManager stopped.")
   }

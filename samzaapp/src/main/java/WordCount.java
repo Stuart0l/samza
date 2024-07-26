@@ -54,7 +54,7 @@ public class WordCount implements StreamApplication {
   private static final String INPUT_STREAM_ID = "sample-text";
   private static final String OUTPUT_STREAM_ID = "word-count-output";
 
-  private static final int TARGET_WORD_COUNT = 100000; // Number of words to process before stopping
+  private static final int TARGET_WORD_COUNT = 1000000; // Number of words to process before stopping
   private static final AtomicInteger wordCount = new AtomicInteger(0);
   private static final CountDownLatch shutdownLatch = new CountDownLatch(1);
 
