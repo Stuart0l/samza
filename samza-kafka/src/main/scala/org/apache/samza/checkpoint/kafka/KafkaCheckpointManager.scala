@@ -175,7 +175,7 @@ class KafkaCheckpointManager(checkpointSpec: KafkaStreamSpec,
       try {
         currentProducer.send(taskName.getTaskName, envelope)
         currentProducer.flush(taskName.getTaskName) // make sure it is written
-        debug(s"Wrote checkpoint: $checkpoint for task: $taskName")
+        println(s"Wrote checkpoint: $checkpoint for task: $taskName")
         return
       } catch {
         case exception: Exception => {

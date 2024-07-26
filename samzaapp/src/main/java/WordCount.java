@@ -42,6 +42,9 @@ import org.apache.samza.system.kafka.descriptors.KafkaOutputDescriptor;
 import org.apache.samza.system.kafka.descriptors.KafkaSystemDescriptor;
 import org.apache.samza.util.CommandLine;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
+
 public class WordCount implements StreamApplication {
   private static final String KAFKA_SYSTEM_NAME = "kafka";
   private static final List<String> KAFKA_CONSUMER_ZK_CONNECT = ImmutableList.of("localhost:2181");
@@ -50,6 +53,10 @@ public class WordCount implements StreamApplication {
 
   private static final String INPUT_STREAM_ID = "sample-text";
   private static final String OUTPUT_STREAM_ID = "word-count-output";
+
+  private static final int TARGET_WORD_COUNT = 100000; // Number of words to process before stopping
+  private static final AtomicInteger wordCount = new AtomicInteger(0);
+  private static final CountDownLatch shutdownLatch = new CountDownLatch(1);
 
   @Override
   public void describe(StreamApplicationDescriptor streamApplicationDescriptor) {
@@ -68,9 +75,17 @@ public class WordCount implements StreamApplication {
     MessageStream<KV<String, String>> lines = streamApplicationDescriptor.getInputStream(inputDescriptor);
     OutputStream<KV<String, String>> counts = streamApplicationDescriptor.getOutputStream(outputDescriptor);
 
+    
     lines
         .map(kv -> kv.value)
         .flatMap(s -> Arrays.asList(s.split("\\W+")))
+        .filter(word -> {
+          if (wordCount.incrementAndGet() >= TARGET_WORD_COUNT) {
+            shutdownLatch.countDown();
+            return false;
+          }
+          return true;
+        })
         .window(Windows.keyedSessionWindow(
           w -> w, Duration.ofSeconds(5), () -> 0, (m, prevCount) -> prevCount + 1,
           new StringSerde(), new IntegerSerde()), "count")
@@ -84,7 +99,17 @@ public class WordCount implements StreamApplication {
     OptionSet options = cmdLine.parser().parse(args);
     Config config = cmdLine.loadConfig(options);
     LocalApplicationRunner runner = new LocalApplicationRunner(new WordCount(), config);
+
     runner.run();
-    runner.waitForFinish();
+    long startTime = System.nanoTime();
+    try {
+      shutdownLatch.await();
+      runner.kill();
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+    long endTime = System.nanoTime();
+    double execTimeSec = (double)(endTime - startTime) / 1000000000.0;
+    System.out.println("Count " + TARGET_WORD_COUNT + " in " + execTimeSec + " sec");
   }
 }
